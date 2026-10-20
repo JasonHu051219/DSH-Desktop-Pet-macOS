@@ -140,8 +140,19 @@ final class PetController: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     private func isOnScreen(origin: NSPoint, size: NSSize) -> Bool {
-        let frame = NSRect(origin: origin, size: size)
-        return NSScreen.screens.contains { $0.visibleFrame.contains(frame) }
+        // The snap position overhangs the visible frame by the artwork inset,
+        // so probe the part of the frame that has to stay on screen.
+        let slack = min(snappedBottomInset(for: size), size.height - 1)
+        let probe = NSRect(x: origin.x, y: origin.y + slack,
+                           width: size.width, height: size.height - slack)
+        return NSScreen.screens.contains { $0.visibleFrame.contains(probe) }
+    }
+
+    /// How far below the visible frame's bottom edge the window frame starts so
+    /// that the drawn artwork touches the screen edge.
+    private func snappedBottomInset(for size: NSSize) -> CGFloat {
+        PetLayout.artworkBottomInset(in: NSRect(origin: .zero, size: size),
+                                     character: state.character)
     }
 
     private func keepWindowVisible() {
@@ -157,8 +168,12 @@ final class PetController: NSObject, NSApplicationDelegate, NSMenuDelegate {
     func snapToCorner(animated: Bool, on screen: NSScreen? = nil) {
         guard let target = screen ?? window.screen ?? NSScreen.main else { return }
         let vf = target.visibleFrame
-        let origin = NSPoint(x: vf.minX + 14, y: vf.minY + 14)
-        let targetFrame = NSRect(origin: origin, size: window.frame.size)
+        let size = window.frame.size
+        // Left keeps its 14pt of air; the bottom goes flush with the screen
+        // edge, which starts the frame lower than `visibleFrame.minY` by the
+        // artwork's own inset.
+        let origin = NSPoint(x: vf.minX + 14, y: vf.minY - snappedBottomInset(for: size))
+        let targetFrame = NSRect(origin: origin, size: size)
         if animated {
             // NSWindow's animator proxy has no animatable `frameOrigin`, so
             // `animator().setFrameOrigin(_:)` is silently ignored and the pet

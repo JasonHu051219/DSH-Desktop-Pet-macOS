@@ -22,6 +22,14 @@ enum PetLayout {
                       width: size.width, height: size.height)
     }
 
+    /// Space between the window's bottom edge and the lowest drawn pixel. The
+    /// window keeps a floating band above the pet, so its frame reaches further
+    /// down than the artwork; snapping subtracts this to make the pet itself
+    /// touch the edge of the screen.
+    static func artworkBottomInset(in bounds: CGRect, character: PetCharacter) -> CGFloat {
+        spriteRect(in: bounds, character: character).minY - bounds.minY
+    }
+
     /// Aspect-preserving, bottom-aligned draw rect. Used when the artwork's own
     /// aspect differs from the character's canvas, such as the 3:2 offline bowl
     /// on the square expression canvas.
