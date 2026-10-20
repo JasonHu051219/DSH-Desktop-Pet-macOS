@@ -1,7 +1,7 @@
 # 左侧头发与鲸尾补全素材
 
 - 成品：`sprite-left-completed.png`，1536×1024 RGBA 透明 PNG。
-- 生成时的编辑目标：原版 1024×1024 `sprite.png`（现保留于仓库 `原版（Windows版）/DSH余额桌宠/`）；人设参考：`character-reference.png`。
+- 生成时的编辑目标：原版 1024×1024 `sprite.png`（上游 Windows 版素材，本仓库不再附带）；人设参考：`character-reference.png`。
 - 使用内置 image_gen 编辑，完整提示词见 `prompt.txt`。
 - 补全画面左侧头发与上翘鲸尾；底部仍保持半身裁切。浅色与深色底透明预览见 `alpha-preview.png`。
 - 原有区域存在轻微生成重绘，不能视作原图逐像素不变的扩边。

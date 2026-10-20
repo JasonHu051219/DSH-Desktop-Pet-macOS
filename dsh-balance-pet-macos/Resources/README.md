@@ -1,6 +1,6 @@
 # 默认素材与来源
 
-图片基础和原版音效来自 [VKmich16/V](https://github.com/VKmich16/V) 的 `DSH余额桌宠.zip`。Windows 原版图片与音效完整保留在仓库的 `原版（Windows版）/DSH余额桌宠/`。
+图片基础和原版音效来自 [VKmich16/V](https://github.com/VKmich16/V) 的 `DSH余额桌宠.zip`。音效已逐字节复制为本目录的 `hit.mp3`（哈希见下表），上游 Windows 源码与素材不随本仓库分发。
 
 1.5.0 起蓝色大肥鱼改用三张 1024 × 1024 表情立绘（`expression_happy/angry/nervous.png`）：平时、失去焦点、扣费中各一张，均由用户提供、直接复制为透明 PNG。旧的 1536 × 1024 单张立绘 `sprite.png` 仍保留在此目录，仅作历史素材，应用已不再加载它。
 

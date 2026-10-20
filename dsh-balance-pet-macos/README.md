@@ -118,7 +118,7 @@ BIN='./dist/DSH大肥鱼桌宠.app/Contents/MacOS/DSHBalancePet'
 - `Resources/`：蓝色大肥鱼的三张 1024 × 1024 表情立绘、其余三张 1536 × 1024 角色 PNG、抱盆图，以及从 Windows 原版逐字节复制的 `hit.mp3`。
 - `artwork/left-completion-v1/`：补全图片、参考、提示词与原始素材检查记录。
 
-上游原始代码及素材完整保存在仓库的 `原版（Windows版）`，来源见 [素材说明](Resources/README.md)。旧音效生成脚本保留供参考，默认构建不再使用。
+上游 Windows 原版的源码与素材不随本仓库分发，需要对照请查阅 [上游项目](https://github.com/VKmich16/V)，来源见 [素材说明](Resources/README.md)。旧音效生成脚本保留供参考，默认构建不再使用。
 
 本应用使用本地临时签名，未经过 Apple 开发者签名与公证。构建通过不等于所有 macOS/Intel 机型均已实测；离屏截图也不等于所有跨应用鼠标交互均已验证。
 

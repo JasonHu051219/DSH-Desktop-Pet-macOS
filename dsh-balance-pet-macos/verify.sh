@@ -33,7 +33,9 @@ codesign --verify --strict "$ROOT/dist/DSH大肥鱼桌宠.app"
 [[ "$(shasum -a 256 "$ROOT/Resources/sprite-claude.png" | cut -d ' ' -f 1)" == 81f0e787057dd9d5e400e5f43a44a1b55da4adfa7329aa712d986531cbd5d90d ]]
 [[ "$(shasum -a 256 "$ROOT/Resources/sprite-gemini.png" | cut -d ' ' -f 1)" == ad5fbeb07c2212476d4670ec56b8e7202e21f05b42ab0461cf3150a43f91a2ef ]]
 [[ "$(shasum -a 256 "$ROOT/Resources/sprite-deepseek-offline.png" | cut -d ' ' -f 1)" == fb4c5cb3001ca43d268d2e3bdf39b9d984e28d592e3b73e46e6fd44ccebb4555 ]]
-cmp "$ROOT/Resources/hit.mp3" "$ROOT/../原版（Windows版）/DSH余额桌宠/hit.mp3"
+# Baked-in hash of the Windows original sound; the upstream archive itself is
+# no longer vendored, so this pins the bytes instead of comparing against it.
+[[ "$(shasum -a 256 "$ROOT/Resources/hit.mp3" | cut -d ' ' -f 1)" == 43fa877b537d8cbfbd676d76109b9a960551bfeae06c62e2d1a7d64d3994cb29 ]]
 for resource in expression_happy.png expression_angry.png expression_nervous.png \
                 sprite-gpt.png sprite-claude.png sprite-gemini.png sprite-deepseek-offline.png hit.mp3; do
   cmp "$ROOT/Resources/$resource" "$ROOT/dist/DSH大肥鱼桌宠.app/Contents/Resources/$resource"

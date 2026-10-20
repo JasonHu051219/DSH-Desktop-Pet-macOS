@@ -120,8 +120,8 @@ open "dist/DSH大肥鱼桌宠.app"
 - [macOS 版源码与完整使用说明](dsh-balance-pet-macos/README.md)
 - [代码审查与验证记录](dsh-balance-pet-macos/docs/REVIEW.md)
 - [角色素材来源与文件哈希](dsh-balance-pet-macos/Resources/README.md)
-- [Windows 原版存档](原版（Windows版）/DSH余额桌宠/先看这里（快速开始）.md)
+- [Windows 原版项目](https://github.com/VKmich16/V)
 
-本项目基于 [VKmich16/V](https://github.com/VKmich16/V) 的 Windows 原版移植，感谢原作者。原版代码和素材完整保留在 `原版（Windows版）` 目录；缓存、编译产物及个人凭证不纳入版本控制。
+本项目基于 [VKmich16/V](https://github.com/VKmich16/V) 的 Windows 原版移植，感谢原作者。上游 Windows 源码与素材不随本仓库分发，需要对照请查阅上游项目；本仓库只用 `dsh-balance-pet-macos/Resources/` 里的素材，缓存、编译产物及个人凭证不纳入版本控制。
 
 上游暂未附带许可证；本仓库保留来源说明，不对上游代码和素材另行授予许可。
