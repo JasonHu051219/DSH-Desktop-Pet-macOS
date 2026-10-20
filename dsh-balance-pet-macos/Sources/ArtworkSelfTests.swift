@@ -207,6 +207,10 @@ enum ArtworkSelfTests {
                 fresh.frame = nextFrame
                 let expectedWindow = NSWindow(contentRect: nextFrame, styleMask: [.borderless], backing: .buffered, defer: false)
                 expectedWindow.contentView = fresh
+                // A window may round its content rect to whole device pixels,
+                // so hand the fresh view the exact bounds the switched view has;
+                // otherwise the two renderings differ by a hairline.
+                fresh.frame = CGRect(origin: .zero, size: view.bounds.size)
                 let expected = renderedData(fresh)
                 expect(actual != nil && expected != nil && actual == expected && actual != previousPixels,
                        "\(name): switched drawing matches a fresh view of the selected character")
