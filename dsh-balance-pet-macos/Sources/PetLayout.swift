@@ -1,5 +1,11 @@
 import AppKit
 
+/// Which bottom corner the pet is parked in. The pet faces the middle of the
+/// screen either way: parked on the right it is drawn mirrored.
+enum PetSide {
+    case left, right
+}
+
 /// Layout of a character's artwork inside its window. A size preset means body
 /// height, so switching between the 1:1 expression set and the 3:2 artwork set
 /// keeps the pet the same height instead of the same width.
@@ -30,6 +36,34 @@ enum PetLayout {
         spriteRect(in: bounds, character: character).minY - bounds.minY
     }
 
+    /// Space between the window's side edge and the drawn artwork. The art is
+    /// inset by 3% on each side, so a window flush with the screen edge still
+    /// floats; snapping compensates with this value on both corners.
+    static func artworkHorizontalInset(in bounds: CGRect, character: PetCharacter) -> CGFloat {
+        (bounds.width - spriteRect(in: bounds, character: character).width) / 2
+    }
+
+    /// The corner the pet belongs to, given where its window currently sits.
+    /// Crossing the middle of the screen hands it to the other corner.
+    static func side(forWindowMidX midX: CGFloat, in visibleFrame: CGRect) -> PetSide {
+        midX > visibleFrame.midX ? .right : .left
+    }
+
+    /// Window origin that parks the artwork in `side`'s bottom corner: the
+    /// lowest and outermost drawn pixels touch the screen edge, so the window
+    /// frame deliberately overhangs the visible frame by its artwork insets.
+    static func cornerOrigin(side: PetSide,
+                             in visibleFrame: CGRect,
+                             windowSize: CGSize,
+                             character: PetCharacter) -> CGPoint {
+        let local = CGRect(origin: .zero, size: windowSize)
+        let horizontal = artworkHorizontalInset(in: local, character: character)
+        let vertical = artworkBottomInset(in: local, character: character)
+        let x = side == .left ? visibleFrame.minX - horizontal
+                              : visibleFrame.maxX - windowSize.width + horizontal
+        return CGPoint(x: x, y: visibleFrame.minY - vertical)
+    }
+
     /// Aspect-preserving, bottom-aligned draw rect. Used when the artwork's own
     /// aspect differs from the character's canvas, such as the 3:2 offline bowl
     /// on the square expression canvas.
@@ -43,10 +77,23 @@ enum PetLayout {
 
     static func tabletTransform(in bounds: CGRect,
                                 character: PetCharacter,
-                                expression: PetExpression = .happy) -> CGAffineTransform {
+                                expression: PetExpression = .happy,
+                                mirrored: Bool = false) -> CGAffineTransform {
         // Convert the selected image's measured corners to bottom-origin source
         // coordinates, using the exact same scale as its sprite and alpha mask.
-        let corners = character.tabletCorners(for: expression)
+        // A mirrored pet flips the artwork, so the panel's own corners swap and
+        // the fourth corner is mirrored too; the text is mapped upright into the
+        // mirrored screen instead of being mirrored with the pixels.
+        var corners = character.tabletCorners(for: expression)
+        if mirrored {
+            let measured = corners
+            let width = character.artworkSize.width
+            let bottomRight = CGPoint(x: measured.topRight.x + measured.bottomLeft.x - measured.topLeft.x,
+                                      y: measured.topRight.y + measured.bottomLeft.y - measured.topLeft.y)
+            corners = (topLeft: CGPoint(x: width - measured.topRight.x, y: measured.topRight.y),
+                       topRight: CGPoint(x: width - measured.topLeft.x, y: measured.topLeft.y),
+                       bottomLeft: CGPoint(x: width - bottomRight.x, y: bottomRight.y))
+        }
         let rect = spriteRect(in: bounds, character: character)
         let artwork = character.artworkSize
         let scale = rect.width / artwork.width

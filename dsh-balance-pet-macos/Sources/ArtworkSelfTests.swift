@@ -144,28 +144,37 @@ enum ArtworkSelfTests {
 
                 // Check actual PNG pixels: shifted text anchors must fail when
                 // they cross hair, hands, or the bezel.
-                let transform = PetLayout.tabletTransform(in: view.bounds, character: character)
                 let artwork = character.artworkSize
                 let scale = rect.width / artwork.width
-                var blackScreenOnly = true
-                for row in 0...10 {
-                    for column in 0...10 {
-                        let panel = CGPoint(x: CGFloat(column) * 40, y: CGFloat(row) * 22)
-                        let mapped = panel.applying(transform)
-                        let x = Int((mapped.x - rect.minX) / scale)
-                        let y = Int(artwork.height - (mapped.y - rect.minY) / scale)
-                        guard x >= 0, x < fixture.bitmap.pixelsWide, y >= 0, y < fixture.bitmap.pixelsHigh,
-                              let color = fixture.bitmap.colorAt(x: x, y: y)?.usingColorSpace(.deviceRGB) else {
-                            blackScreenOnly = false
-                            continue
-                        }
-                        if color.alphaComponent < 0.95
-                            || max(color.redComponent, color.greenComponent, color.blueComponent) > 0.15 {
-                            blackScreenOnly = false
+                // Every sampled point of the text panel must land on the black
+                // screen in both facings; the mirrored version reads the flipped
+                // column of the same bitmap.
+                for mirrored in [false, true] {
+                    let transform = PetLayout.tabletTransform(in: view.bounds, character: character,
+                                                             mirrored: mirrored)
+                    var blackScreenOnly = true
+                    for row in 0...10 {
+                        for column in 0...10 {
+                            let panel = CGPoint(x: CGFloat(column) * 40, y: CGFloat(row) * 22)
+                            let mapped = panel.applying(transform)
+                            let pixelColumn = Int((mapped.x - rect.minX) / scale)
+                            let x = mirrored ? fixture.bitmap.pixelsWide - 1 - pixelColumn : pixelColumn
+                            let y = Int(artwork.height - (mapped.y - rect.minY) / scale)
+                            guard x >= 0, x < fixture.bitmap.pixelsWide, y >= 0, y < fixture.bitmap.pixelsHigh,
+                                  let color = fixture.bitmap.colorAt(x: x, y: y)?.usingColorSpace(.deviceRGB) else {
+                                blackScreenOnly = false
+                                continue
+                            }
+                            if color.alphaComponent < 0.95
+                                || max(color.redComponent, color.greenComponent, color.blueComponent) > 0.15 {
+                                blackScreenOnly = false
+                            }
                         }
                     }
+                    let facing = mirrored ? " (mirrored)" : ""
+                    expect(blackScreenOnly,
+                           "\(name): all 121 text-region samples lie on the black tablet screen\(facing)")
                 }
-                expect(blackScreenOnly, "\(name): all 121 text-region samples lie on the black tablet screen")
                 let motionBounds = rect.insetBy(dx: -min(3.2, side * 0.025),
                                                 dy: -min(3.2, side * 0.025) * 0.875)
                 expect(CGRect(x: 0, y: 0, width: frame.width, height: side).contains(motionBounds),
@@ -220,6 +229,7 @@ enum ArtworkSelfTests {
         }
 
         expressionTests(expect)
+        cornerAndMirrorTests(expect)
         offlineArtworkTests(expect)
         stateTests(expect)
         if let url = PetPaths.soundURL, let sound = NSSound(contentsOf: url, byReference: false) {
@@ -227,10 +237,73 @@ enum ArtworkSelfTests {
         } else { expect(false, "original MP3 loads and decodes") }
     }
 
+    /// Either bottom corner must touch both screen edges, and a pet parked on
+    /// the right must mirror its artwork without mirroring the readout.
+    private static func cornerAndMirrorTests(_ expect: (Bool, String) -> Void) {
+        // A screen that starts left of zero and above the bottom, like a display
+        // arranged beside the built-in one.
+        let screen = CGRect(x: -1440, y: 24, width: 1440, height: 830)
+        for preset in PetController.sizePresets {
+            for character in PetCharacter.allCases {
+                let size = PetLayout.windowSize(side: preset.side, character: character)
+                let local = PetLayout.spriteRect(in: CGRect(origin: .zero, size: size), character: character)
+                for side in [PetSide.left, .right] {
+                    let origin = PetLayout.cornerOrigin(side: side, in: screen,
+                                                        windowSize: size, character: character)
+                    let bottom = abs(origin.y + local.minY - screen.minY) < 0.001
+                    let outer = side == .left ? abs(origin.x + local.minX - screen.minX)
+                                              : abs(origin.x + local.maxX - screen.maxX)
+                    expect(bottom && outer < 0.001,
+                           "\(character.displayName), \(Int(preset.side))pt: \(side) corner touches the screen edges")
+                }
+                expect(PetLayout.side(forWindowMidX: screen.midX - 2, in: screen) == .left
+                       && PetLayout.side(forWindowMidX: screen.midX + 2, in: screen) == .right,
+                       "\(character.displayName), \(Int(preset.side))pt: crossing the screen middle swaps corners")
+            }
+        }
+
+        let frame = CGRect(origin: .zero, size: PetLayout.windowSize(side: 150, character: .deepseek))
+        let model = PetModel()
+        model.apply(reading: BalanceReading(normalCny: 38.61, bonusCny: 0, spentCny: nil, raw: ""), snap: true)
+        let view = PetView(model: model, character: .deepseek)
+        let window = NSWindow(contentRect: frame, styleMask: [.borderless], backing: .buffered, defer: false)
+        window.contentView = view
+        guard let sprite = PetAssets.sprite(for: .deepseek) else {
+            expect(false, "mirror: the blue pet artwork is available")
+            return
+        }
+        let rect = PetLayout.spriteRect(in: view.bounds, character: .deepseek)
+        var drawn = 0
+        var clear = 0
+        for (nx, ny) in [(CGFloat(0.78), CGFloat(0.28)), (0.20, 0.35), (0.05, 0.95), (0.50, 0.05)] {
+            let point = CGPoint(x: rect.minX + rect.width * nx, y: rect.minY + rect.height * ny)
+            let mirroredPoint = CGPoint(x: 2 * view.bounds.midX - point.x, y: point.y)
+            view.mirrored = true
+            let hit = view.containsInteractivePoint(mirroredPoint)
+            view.mirrored = false
+            // A mirrored pet samples the alpha mask from the opposite column.
+            let expected = sprite.isOpaque(at: CGPoint(x: 1 - nx, y: ny))
+            expect(hit == expected, "mirror: click at \(nx), \(ny) follows the flipped alpha mask")
+            if expected { drawn += 1 } else { clear += 1 }
+        }
+        expect(drawn > 0 && clear > 0, "mirror: probes cover both drawn and transparent pixels")
+
+        let upright = PetLayout.tabletTransform(in: view.bounds, character: .deepseek)
+        let mirrored = PetLayout.tabletTransform(in: view.bounds, character: .deepseek, mirrored: true)
+        let panel = CGPoint(x: PetLayout.tabletBounds.midX, y: PetLayout.tabletBounds.midY)
+        let mapped = panel.applying(upright)
+        let mappedMirrored = panel.applying(mirrored)
+        expect(abs(mappedMirrored.x - (2 * view.bounds.midX - mapped.x)) < 0.5
+               && abs(mappedMirrored.y - mapped.y) < 0.5,
+               "mirror: the readout follows the artwork onto the mirrored screen")
+        expect(abs((mirrored.a * mirrored.d - mirrored.b * mirrored.c)
+                   - (upright.a * upright.d - upright.b * upright.c)) < 0.000001,
+               "mirror: tablet text stays upright instead of flipping the glyphs")
+    }
+
     /// Each face must draw a different picture, and each keeps the text on the
     /// same tablet screen.
-    private static func expressionTests(_ expect: (Bool, String) -> Void) {
-        let side: CGFloat = 150
+    private static func expressionTests(_ expect: (Bool, String) -> Void) {        let side: CGFloat = 150
         let frame = CGRect(origin: .zero, size: PetLayout.windowSize(side: side, character: .deepseek))
         let model = PetModel()
         model.apply(reading: BalanceReading(normalCny: 38.61, bonusCny: 0, spentCny: nil, raw: ""), snap: true)

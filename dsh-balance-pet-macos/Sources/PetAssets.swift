@@ -34,10 +34,12 @@ enum PetAssets {
         var size: CGSize { CGSize(width: image.width, height: image.height) }
 
         /// Normalized position measured from the lower-left, like an NSView.
-        /// Bitmap pixels use the opposite vertical direction.
-        func isOpaque(at point: CGPoint) -> Bool {
+        /// Bitmap pixels use the opposite vertical direction. A mirrored pet is
+        /// drawn flipped, so the sample column flips with it.
+        func isOpaque(at point: CGPoint, mirrored: Bool = false) -> Bool {
             guard point.x >= 0, point.x < 1, point.y >= 0, point.y < 1 else { return false }
-            let x = min(bitmap.pixelsWide - 1, Int(point.x * CGFloat(bitmap.pixelsWide)))
+            let column = min(bitmap.pixelsWide - 1, Int(point.x * CGFloat(bitmap.pixelsWide)))
+            let x = mirrored ? bitmap.pixelsWide - 1 - column : column
             let y = bitmap.pixelsHigh - 1 - min(bitmap.pixelsHigh - 1, Int(point.y * CGFloat(bitmap.pixelsHigh)))
             return (bitmap.colorAt(x: x, y: y)?.alphaComponent ?? 0) > 8.0 / 255.0
         }

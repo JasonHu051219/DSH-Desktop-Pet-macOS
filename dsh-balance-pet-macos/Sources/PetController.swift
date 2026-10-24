@@ -82,6 +82,7 @@ final class PetController: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
 
         placeWindow()
+        updateMirrored()
         // Decide visibility before the first paint so a pet bound to a closed
         // dsh-desktop window never flashes on screen at launch.
         applyWindowBinding(state.followDSHWindow ? DSHWindowWatcher.presence() : .visible)
@@ -130,21 +131,25 @@ final class PetController: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     private func placeWindow() {
         let size = window.frame.size
-        if let origin = state.windowOrigin, isOnScreen(origin: origin, size: size) {
+        if let origin = state.windowOrigin {
+            // Put the window where the pet was last parked, on screen or not;
+            // the corner it belongs to follows that position.
             window.setFrameOrigin(origin)
-            return
+            if isOnScreen(origin: origin, size: size) { return }
         }
-        // First run: land on the primary display (the one with the menu bar)
-        // rather than whichever screen the fresh window happened to open on.
+        // First run, or the display the pet lived on is gone: land on the
+        // primary display (the one with the menu bar) instead of whichever
+        // screen the fresh window happened to open on.
         snapToCorner(animated: false, on: NSScreen.screens.first)
     }
 
     private func isOnScreen(origin: NSPoint, size: NSSize) -> Bool {
-        // The snap position overhangs the visible frame by the artwork inset,
-        // so probe the part of the frame that has to stay on screen.
-        let slack = min(snappedBottomInset(for: size), size.height - 1)
-        let probe = NSRect(x: origin.x, y: origin.y + slack,
-                           width: size.width, height: size.height - slack)
+        // A parked frame overhangs the visible frame by the artwork insets, so
+        // probe only the part of the frame that has to stay on screen.
+        let bottom = min(snappedBottomInset(for: size), size.height - 1)
+        let horizontal = min(snappedHorizontalInset(for: size), size.width / 2 - 1)
+        let probe = NSRect(x: origin.x + horizontal, y: origin.y + bottom,
+                           width: size.width - horizontal * 2, height: size.height - bottom)
         return NSScreen.screens.contains { $0.visibleFrame.contains(probe) }
     }
 
@@ -155,6 +160,26 @@ final class PetController: NSObject, NSApplicationDelegate, NSMenuDelegate {
                                      character: state.character)
     }
 
+    /// Sideways air between the window edge and the artwork, compensated when
+    /// the pet hugs either side of the screen.
+    private func snappedHorizontalInset(for size: NSSize) -> CGFloat {
+        PetLayout.artworkHorizontalInset(in: NSRect(origin: .zero, size: size),
+                                         character: state.character)
+    }
+
+    /// The pet faces the middle of the screen: parked in the right corner it is
+    /// drawn mirrored. The small dead band keeps a drag hovering on the midline
+    /// from flickering between the two facings.
+    private func updateMirrored() {
+        guard let window = window, let visible = (window.screen ?? NSScreen.main)?.visibleFrame else { return }
+        let delta = window.frame.midX - visible.midX
+        if delta > 8 {
+            view.mirrored = true
+        } else if delta < -8 {
+            view.mirrored = false
+        }
+    }
+
     private func keepWindowVisible() {
         guard let window = window else { return }
         if !isOnScreen(origin: window.frame.origin, size: window.frame.size) {
@@ -163,16 +188,18 @@ final class PetController: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
     }
 
-    /// Snap to the bottom-left corner. `on` defaults to the screen the pet is
-    /// currently sitting on, so dragging it to another display keeps it there.
-    func snapToCorner(animated: Bool, on screen: NSScreen? = nil) {
+    /// Snap to a bottom corner. The corner is the one nearest the pet's current
+    /// position, so dragging past the middle of the screen parks it on the other
+    /// side; `on` defaults to the screen the pet is currently sitting on.
+    func snapToCorner(animated: Bool, on screen: NSScreen? = nil, side: PetSide? = nil) {
         guard let target = screen ?? window.screen ?? NSScreen.main else { return }
         let vf = target.visibleFrame
         let size = window.frame.size
-        // Left keeps its 14pt of air; the bottom goes flush with the screen
-        // edge, which starts the frame lower than `visibleFrame.minY` by the
-        // artwork's own inset.
-        let origin = NSPoint(x: vf.minX + 14, y: vf.minY - snappedBottomInset(for: size))
+        let corner = side ?? PetLayout.side(forWindowMidX: window.frame.midX, in: vf)
+        // Both bottom corners are flush with the screen edge: the window frame
+        // overhangs by the artwork's own insets so the visible pixels touch.
+        let origin = PetLayout.cornerOrigin(side: corner, in: vf,
+                                            windowSize: size, character: state.character)
         let targetFrame = NSRect(origin: origin, size: size)
         if animated {
             // NSWindow's animator proxy has no animatable `frameOrigin`, so
@@ -191,6 +218,7 @@ final class PetController: NSObject, NSApplicationDelegate, NSMenuDelegate {
             window.setFrameOrigin(origin)
         }
         state.windowOrigin = origin
+        updateMirrored()
     }
 
     func dragDidEnd() {
@@ -280,6 +308,7 @@ final class PetController: NSObject, NSApplicationDelegate, NSMenuDelegate {
             refreshWindowBinding()
         }
         refreshExpression()
+        updateMirrored()
     }
 
     /// Publish a small liveness/geometry snapshot so the pet can be inspected
@@ -292,6 +321,7 @@ final class PetController: NSObject, NSApplicationDelegate, NSMenuDelegate {
             "character": view.character.rawValue,
             "characterName": view.character.displayName,
             "expression": view.expression.rawValue,
+            "mirrored": view.mirrored,
             "connected": model.connected,
             "display": model.displayString,
             "real": model.realString,
@@ -478,7 +508,7 @@ final class PetController: NSObject, NSApplicationDelegate, NSMenuDelegate {
         menu.addItem(sizeItem)
         menu.setSubmenu(sizeMenu, for: sizeItem)
 
-        menu.addItem(item(state.snapOnRelease ? "✓ 松手吸附左下角" : "　松手吸附左下角") { [weak self] in
+        menu.addItem(item(state.snapOnRelease ? "✓ 松手吸附角落" : "　松手吸附角落") { [weak self] in
             guard let self = self else { return }
             self.state.snapOnRelease.toggle()
             self.state.save()
@@ -520,7 +550,7 @@ final class PetController: NSObject, NSApplicationDelegate, NSMenuDelegate {
         menu.addItem(.separator())
         menu.addItem(item("设置 API Key…") { [weak self] in self?.askForKey() })
         menu.addItem(item("重新读取凭证") { [weak self] in self?.reloadCredential() })
-        menu.addItem(item("吸附回左下角") { [weak self] in
+        menu.addItem(item("吸附回最近的角落") { [weak self] in
             self?.snapToCorner(animated: true)
             self?.state.save()
         })
@@ -590,15 +620,14 @@ final class PetController: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private func setCharacter(_ character: PetCharacter) {
         guard character != state.character, PetAssets.sprite(for: character) != nil else { return }
         let previousAspect = state.character.aspectRatio
+        let parked = parkedSide(for: window.frame, character: state.character)
         state.character = character
         view.setCharacter(character)
         // Characters ship different canvas aspects, so keep the body height and
-        // the anchored bottom-left corner while the window widens or narrows.
+        // the anchored bottom corner while the window widens or narrows.
         if abs(character.aspectRatio - previousAspect) > 0.0001 {
-            let size = PetLayout.windowSize(side: side, character: character)
-            window.setFrame(NSRect(origin: window.frame.origin, size: size), display: true)
-            keepWindowVisible()
-            state.windowOrigin = window.frame.origin
+            resizeWindow(to: PetLayout.windowSize(side: side, character: character),
+                         parkedIn: parked, character: character)
         }
         // Switching artwork leaves the balance model, queued animations, polling,
         // position and size intact. The next pointer tick uses the new alpha mask.
@@ -607,13 +636,35 @@ final class PetController: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     private func setSize(index: Int) {
+        let parked = parkedSide(for: window.frame, character: state.character)
         state.sizeIndex = min(max(index, 0), Self.sizePresets.count - 1)
-        let newSize = PetLayout.windowSize(side: side, character: state.character)
-        let origin = window.frame.origin
-        window.setFrame(NSRect(origin: origin, size: newSize), display: true)
+        resizeWindow(to: PetLayout.windowSize(side: side, character: state.character),
+                     parkedIn: parked, character: state.character)
+        state.save()
+    }
+
+    /// Resize the window, keeping a parked pet in its corner so the new width
+    /// still touches the screen edge instead of drifting away from it.
+    private func resizeWindow(to size: CGSize, parkedIn side: PetSide?, character: PetCharacter) {
+        guard let window = window else { return }
+        var origin = window.frame.origin
+        if let side = side, let vf = (window.screen ?? NSScreen.main)?.visibleFrame {
+            origin = PetLayout.cornerOrigin(side: side, in: vf, windowSize: size, character: character)
+        }
+        window.setFrame(NSRect(origin: origin, size: size), display: true)
         keepWindowVisible()
         state.windowOrigin = window.frame.origin
-        state.save()
+        updateMirrored()
+    }
+
+    /// The corner the window is parked in right now, if it sits there exactly.
+    /// A point of tolerance absorbs the device-pixel rounding of window frames.
+    private func parkedSide(for frame: NSRect, character: PetCharacter) -> PetSide? {
+        guard let vf = (window?.screen ?? NSScreen.main)?.visibleFrame else { return nil }
+        let side = PetLayout.side(forWindowMidX: frame.midX, in: vf)
+        let corner = PetLayout.cornerOrigin(side: side, in: vf, windowSize: frame.size, character: character)
+        guard abs(corner.x - frame.origin.x) < 1.5, abs(corner.y - frame.origin.y) < 1.5 else { return nil }
+        return side
     }
 
     private func reloadCredential() {

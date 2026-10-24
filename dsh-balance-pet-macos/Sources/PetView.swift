@@ -17,6 +17,15 @@ final class PetView: NSView {
         }
     }
 
+    /// Parked in the right corner the pet is drawn mirrored, so it keeps facing
+    /// the middle of the screen. The readout stays upright either way.
+    var mirrored: Bool = false {
+        didSet {
+            guard mirrored != oldValue else { return }
+            needsDisplay = true
+        }
+    }
+
     private var activeSprite: PetAssets.Sprite? {
         showsOfflineArtwork
             ? PetAssets.deepseekOffline
@@ -83,7 +92,8 @@ final class PetView: NSView {
         guard rect.contains(local) else { return false }
         guard let sprite = activeSprite else { return true }
         return sprite.isOpaque(at: CGPoint(x: (local.x - rect.minX) / rect.width,
-                                           y: (local.y - rect.minY) / rect.height))
+                                           y: (local.y - rect.minY) / rect.height),
+                               mirrored: mirrored)
     }
 
     override func hitTest(_ point: NSPoint) -> NSView? {
@@ -147,7 +157,7 @@ final class PetView: NSView {
         if let sprite = activeSprite {
             ctx.interpolationQuality = .high
             ctx.beginTransparencyLayer(auxiliaryInfo: nil)
-            ctx.draw(sprite.image, in: imageRect)
+            drawSprite(sprite, in: imageRect, ctx: ctx)
             if model.impact > 0 {
                 // sourceAtop preserves the supplied sprite's alpha, including
                 // its soft edge, instead of filling its transparent background.
@@ -171,6 +181,22 @@ final class PetView: NSView {
         if !showsOfflineArtwork { drawFloating(ctx) }
     }
 
+    /// Draws the artwork, flipped horizontally when the pet is parked on the
+    /// right. The flip is about the artwork's own centre so mirrored and plain
+    /// rendering cover the same pixels.
+    private func drawSprite(_ sprite: PetAssets.Sprite, in rect: CGRect, ctx: CGContext) {
+        guard mirrored else {
+            ctx.draw(sprite.image, in: rect)
+            return
+        }
+        ctx.saveGState()
+        ctx.translateBy(x: rect.midX, y: 0)
+        ctx.scaleBy(x: -1, y: 1)
+        ctx.translateBy(x: -rect.midX, y: 0)
+        ctx.draw(sprite.image, in: rect)
+        ctx.restoreGState()
+    }
+
     private func drawCentered(_ text: String, font: NSFont, color: NSColor, center: CGPoint) {
         let value = NSAttributedString(string: text, attributes: [.font: font, .foregroundColor: color])
         let size = value.size()
@@ -181,7 +207,8 @@ final class PetView: NSView {
         let panelWidth = PetLayout.tabletBounds.width
         let panelHeight = PetLayout.tabletBounds.height
         ctx.saveGState()
-        ctx.concatenate(PetLayout.tabletTransform(in: bounds, character: character, expression: expression))
+        ctx.concatenate(PetLayout.tabletTransform(in: bounds, character: character,
+                                                  expression: expression, mirrored: mirrored))
         ctx.clip(to: PetLayout.tabletBounds)
         ctx.setShadow(offset: CGSize(width: 1.5, height: -1.5), blur: 1.5,
                       color: NSColor.black.withAlphaComponent(0.65).cgColor)
@@ -232,8 +259,11 @@ final class PetView: NSView {
             ])
             let size = value.size()
             // Follow the character on the right, rather than centering over the tail.
-            let x = min(max(0, bounds.width - side + side * label.x - size.width / 2),
-                        max(0, bounds.width - size.width))
+            let anchor = min(max(0, bounds.width - side + side * label.x - size.width / 2),
+                             max(0, bounds.width - size.width))
+            // A mirrored pet carries its floating numbers to the other side too,
+            // but the text itself stays upright.
+            let x = mirrored ? bounds.width - anchor - size.width : anchor
             ctx.saveGState()
             ctx.setShadow(offset: .zero, blur: side * 0.022,
                           color: NSColor.black.withAlphaComponent(0.4 * alpha).cgColor)

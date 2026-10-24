@@ -165,7 +165,7 @@ enum Diagnostics {
         }
         print("wrote \(written.count) snapshot(s) to \(dir.path)")
         for name in written { print("  " + name) }
-        return written.count == 21 * PetCharacter.allCases.count ? 0 : 1
+        return written.count == 22 * PetCharacter.allCases.count ? 0 : 1
     }
 
     private static func characterSnapshots(into dir: URL, character: PetCharacter) -> [String] {
@@ -244,6 +244,15 @@ enum Diagnostics {
         detail.frame = NSRect(origin: .zero, size: PetLayout.windowSize(side: 640, character: character))
         let detailName = "09-tablet-detail.png"
         if render(detail, to: dir.appendingPathComponent(detailName)) { written.append(detailName) }
+
+        // 10. Parked in the right corner: the same idle pose mirrored, with the
+        //     readout still upright on the mirrored tablet. Rendered larger than
+        //     the other snapshots because it doubles as a documentation image.
+        let parked = makeView(idle)
+        parked.frame = NSRect(origin: .zero, size: PetLayout.windowSize(side: 480, character: character))
+        let parkedName = "10-mirrored.png"
+        parked.mirrored = true
+        if render(parked, to: dir.appendingPathComponent(parkedName)) { written.append(parkedName) }
 
         return written
     }
