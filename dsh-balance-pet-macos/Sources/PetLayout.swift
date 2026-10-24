@@ -6,6 +6,35 @@ enum PetSide {
     case left, right
 }
 
+/// Pressing the pet ducks its head: the artwork briefly loses a tenth of its
+/// height, anchored on its feet, then springs back. Kept as pure timing so the
+/// shape of the motion can be checked without a window server.
+enum PetDuck {
+    /// Total length of the squash and its recovery.
+    static let duration: CFTimeInterval = 0.24
+    /// Height lost at the deepest point, as a fraction of the artwork height.
+    static let squash: CGFloat = 0.10
+    /// When the squash bottoms out, as a fraction of `duration`. The head drops
+    /// faster than it comes back up.
+    static let bottom: Double = 0.32
+
+    /// Vertical scale at `elapsed` seconds after the press.
+    static func scale(after elapsed: CFTimeInterval) -> CGFloat {
+        guard elapsed > 0, elapsed < duration else { return 1 }
+        let progress = elapsed / duration
+        let depth = progress < bottom ? progress / bottom
+                                      : 1 - (progress - bottom) / (1 - bottom)
+        return 1 - squash * CGFloat(max(0, min(1, depth)))
+    }
+
+    /// The artwork rect shortened about its bottom edge, so the feet stay put.
+    static func rect(_ rect: CGRect, after elapsed: CFTimeInterval) -> CGRect {
+        let scale = scale(after: elapsed)
+        guard scale < 1 else { return rect }
+        return CGRect(x: rect.minX, y: rect.minY, width: rect.width, height: rect.height * scale)
+    }
+}
+
 /// Layout of a character's artwork inside its window. A size preset means body
 /// height, so switching between the 1:1 expression set and the 3:2 artwork set
 /// keeps the pet the same height instead of the same width.

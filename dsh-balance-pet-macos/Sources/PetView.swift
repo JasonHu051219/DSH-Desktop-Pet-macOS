@@ -49,6 +49,10 @@ final class PetView: NSView {
     }
 
     required init?(coder: NSCoder) { fatalError("not used") }
+
+    deinit {
+        duckTimer?.invalidate()
+    }
     override var isFlipped: Bool { false }
     override var isOpaque: Bool { false }
 
@@ -81,14 +85,55 @@ final class PetView: NSView {
                        y: cos(elapsed * 19) * amplitude * 0.875 * decay)
     }
 
+    // MARK: - Ducking on click
+
+    private var duckStartedAt: CFTimeInterval?
+    private var duckTimer: Timer?
+
+    /// Vertical squeeze of the artwork right now; 1 when the pet is at rest.
+    private var duckScale: CGFloat {
+        guard let start = duckStartedAt else { return 1 }
+        return PetDuck.scale(after: CACurrentMediaTime() - start)
+    }
+
+    var isDucking: Bool { duckStartedAt != nil }
+
+    /// Squash the pet and spring back. Called on mouse-down so the reaction is
+    /// immediate; a short timer drives the redraws at 60 Hz while it lasts.
+    /// `elapsed` lets a test render a frame from the middle of the press.
+    func beginDuck(elapsed: CFTimeInterval = 0) {
+        duckStartedAt = CACurrentMediaTime() - elapsed
+        needsDisplay = true
+        guard duckTimer == nil else { return }
+        let timer = Timer(timeInterval: 1.0 / 60.0, repeats: true) { [weak self] _ in
+            guard let self = self else { return }
+            self.needsDisplay = true
+            guard let start = self.duckStartedAt,
+                  CACurrentMediaTime() - start >= PetDuck.duration else { return }
+            self.duckStartedAt = nil
+            self.duckTimer?.invalidate()
+            self.duckTimer = nil
+            self.needsDisplay = true
+        }
+        timer.tolerance = 1.0 / 240.0
+        RunLoop.main.add(timer, forMode: .common)
+        duckTimer = timer
+    }
+
     /// Used by both AppKit hit testing and the controller's window-level
     /// ignoresMouseEvents update. Returning nil from hitTest alone does not
     /// guarantee delivery to another application's window.
     func containsInteractivePoint(_ point: NSPoint) -> Bool {
         guard bounds.contains(point), point.y < bounds.minY + side else { return false }
         let offset = shakeOffset
-        let local = CGPoint(x: point.x - offset.x, y: point.y - offset.y)
+        var local = CGPoint(x: point.x - offset.x, y: point.y - offset.y)
         let rect = imageRect
+        // While ducking, the drawing is vertically compressed; map the pointer
+        // back into the artwork's own coordinates before sampling its alpha.
+        let scale = duckScale
+        if scale < 1, local.y > rect.minY {
+            local.y = rect.minY + (local.y - rect.minY) / scale
+        }
         guard rect.contains(local) else { return false }
         guard let sprite = activeSprite else { return true }
         return sprite.isOpaque(at: CGPoint(x: (local.x - rect.minX) / rect.width,
@@ -108,6 +153,9 @@ final class PetView: NSView {
             controller?.showContextMenu(with: event)
             return
         }
+        // React on the press itself: no click-vs-drag wait, so the duck starts
+        // immediately even if the press turns into a drag.
+        controller?.petWasClicked()
         isDragging = true
         didDrag = false
         dragStartMouse = NSEvent.mouseLocation
@@ -144,6 +192,16 @@ final class PetView: NSView {
         ctx.saveGState()
         let offset = shakeOffset
         ctx.translateBy(x: offset.x, y: offset.y)
+
+        // Ducking squashes the artwork (and its tablet text together) about the
+        // feet, so the pet shrinks from the shoulders up.
+        let duck = duckScale
+        if duck < 1 {
+            let floor = imageRect.minY
+            ctx.translateBy(x: 0, y: floor)
+            ctx.scaleBy(x: 1, y: duck)
+            ctx.translateBy(x: 0, y: -floor)
+        }
 
         if model.topupTime > 0 {
             let progress = 1 - CGFloat(model.topupTime / 0.9)

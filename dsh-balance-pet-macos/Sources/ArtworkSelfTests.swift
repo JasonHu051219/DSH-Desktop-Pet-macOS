@@ -65,6 +65,28 @@ enum ArtworkSelfTests {
         return bitmap.representation(using: .png, properties: [:])
     }
 
+    /// Opaque bounding box of a rendered view in bitmap pixels, `y` growing
+    /// downwards like the PNG it is decoded from.
+    private static func opaqueBounds(_ data: Data?) -> (minY: Int, maxY: Int, width: Int, height: Int)? {
+        guard let data = data, let rep = NSBitmapImageRep(data: data),
+              let pixels = rep.bitmapData, rep.samplesPerPixel >= 4 else { return nil }
+        let samples = rep.samplesPerPixel
+        let rowBytes = rep.bytesPerRow
+        var minX = rep.pixelsWide, minY = rep.pixelsHigh, maxX = -1, maxY = -1
+        for y in 0..<rep.pixelsHigh {
+            let row = y * rowBytes
+            for x in 0..<rep.pixelsWide {
+                guard pixels[row + x * samples + samples - 1] > 8 else { continue }
+                if x < minX { minX = x }
+                if x > maxX { maxX = x }
+                if y < minY { minY = y }
+                if y > maxY { maxY = y }
+            }
+        }
+        guard maxX >= minX, maxY >= minY else { return nil }
+        return (minY, maxY, maxX - minX + 1, maxY - minY + 1)
+    }
+
     /// First normalized position whose alpha differs strongly between two
     /// characters, so the switching test can prove the new mask is in use.
     private static func strongAlphaDifference(_ before: Fixture, _ after: Fixture) -> CGPoint? {
@@ -230,6 +252,7 @@ enum ArtworkSelfTests {
 
         expressionTests(expect)
         cornerAndMirrorTests(expect)
+        duckTests(expect)
         offlineArtworkTests(expect)
         stateTests(expect)
         if let url = PetPaths.soundURL, let sound = NSSound(contentsOf: url, byReference: false) {
@@ -299,6 +322,67 @@ enum ArtworkSelfTests {
         expect(abs((mirrored.a * mirrored.d - mirrored.b * mirrored.c)
                    - (upright.a * upright.d - upright.b * upright.c)) < 0.000001,
                "mirror: tablet text stays upright instead of flipping the glyphs")
+    }
+
+    /// Pressing the pet ducks it: a tenth of the height, anchored on the feet,
+    /// back to normal within a quarter of a second.
+    private static func duckTests(_ expect: (Bool, String) -> Void) {
+        expect(PetDuck.scale(after: 0) == 1, "duck: the pet is at rest before the press")
+        expect(PetDuck.scale(after: PetDuck.duration) == 1
+               && PetDuck.scale(after: PetDuck.duration * 5) == 1,
+               "duck: back to full height once it ends")
+        expect(abs(PetDuck.squash - 0.10) < 0.0001 && PetDuck.duration <= 0.3,
+               "duck: a 10% squeeze inside a quarter of a second")
+
+        let bottom = PetDuck.duration * PetDuck.bottom
+        expect(abs(PetDuck.scale(after: bottom) - (1 - PetDuck.squash)) < 0.0001,
+               "duck: bottoms out exactly at the configured squash")
+
+        var scales: [CGFloat] = []
+        for step in 0...40 {
+            scales.append(PetDuck.scale(after: PetDuck.duration * Double(step) / 40))
+        }
+        let lowestIndex = scales.indices.min { scales[$0] < scales[$1] } ?? 0
+        let lowestAt = PetDuck.duration * Double(lowestIndex) / 40
+        let dips = lowestIndex == 0
+            || (1...lowestIndex).allSatisfy { scales[$0] <= scales[$0 - 1] + 0.0001 }
+        let rises = lowestIndex + 1 >= scales.count
+            || ((lowestIndex + 1)..<scales.count).allSatisfy { scales[$0] >= scales[$0 - 1] - 0.0001 }
+        expect(dips && rises, "duck: dips once, then springs straight back")
+        expect(abs(lowestAt - bottom) < 0.02, "duck: the deepest point lands where the timing says")
+
+        let artwork = CGRect(x: 12, y: 30, width: 120, height: 140)
+        let squashed = PetDuck.rect(artwork, after: bottom)
+        expect(abs(squashed.minY - artwork.minY) < 0.0001
+               && abs(squashed.height - artwork.height * 0.9) < 0.0001
+               && squashed.width == artwork.width,
+               "duck: the artwork shrinks from its feet instead of its middle")
+        expect(PetDuck.rect(artwork, after: PetDuck.duration) == artwork,
+               "duck: the artwork is untouched outside the press")
+
+        // The drawing really compresses: render a mid-press frame and compare
+        // its opaque box with the resting pet.
+        let frame = CGRect(origin: .zero, size: PetLayout.windowSize(side: 150, character: .deepseek))
+        let model = PetModel()
+        model.apply(reading: BalanceReading(normalCny: 38.61, bonusCny: 0, spentCny: nil, raw: ""), snap: true)
+        func renderedBox(_ view: PetView) -> (minY: Int, maxY: Int, width: Int, height: Int)? {
+            let window = NSWindow(contentRect: frame, styleMask: [.borderless], backing: .buffered, defer: false)
+            window.contentView = view
+            view.frame = CGRect(origin: .zero, size: frame.size)
+            return opaqueBounds(renderedData(view))
+        }
+        let normal = renderedBox(PetView(model: model, character: .deepseek))
+        let ducking = PetView(model: model, character: .deepseek)
+        ducking.beginDuck(elapsed: PetDuck.duration * PetDuck.bottom)
+        let pressed = renderedBox(ducking)
+        if let normal = normal, let pressed = pressed {
+            expect(abs(pressed.width - normal.width) <= 2, "duck: the artwork keeps its width")
+            expect(abs(pressed.maxY - normal.maxY) <= 2, "duck: the feet stay planted on the ground")
+            expect(abs(CGFloat(pressed.height) - CGFloat(normal.height) * 0.9) <= 3,
+                   "duck: the rendered pet really is 10% shorter")
+        } else {
+            expect(false, "duck: the pressed frame renders for comparison")
+        }
     }
 
     /// Each face must draw a different picture, and each keeps the text on the

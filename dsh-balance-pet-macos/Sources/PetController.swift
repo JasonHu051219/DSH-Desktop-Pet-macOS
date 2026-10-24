@@ -227,6 +227,16 @@ final class PetController: NSObject, NSApplicationDelegate, NSMenuDelegate {
         state.save()
     }
 
+    /// A press makes the pet duck: nervous face plus a quick vertical squash.
+    /// Both start immediately, so a click reads as a reflex rather than a wait.
+    func petWasClicked() {
+        guard !petHidden else { return }
+        nervousUntil = max(nervousUntil, CACurrentMediaTime() + PetDuck.duration)
+        view.expression = .nervous
+        view.beginDuck()
+        writeStatus()
+    }
+
     // MARK: - dsh-desktop window binding
 
     /// The pet is shown only while the host desktop window is on screen. Losing
