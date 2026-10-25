@@ -15,7 +15,7 @@
 open 'dist/DSH大肥鱼桌宠.app'
 ```
 
-默认编译当前机器架构。可选 `ARCH=arm64`、`ARCH=x86_64` 或 `ARCH=universal ./build.sh`；universal 同时包含 Apple Silicon 与 Intel。构建会验证临时签名，成功后替换同名产物，不清空整个 `dist` 目录。
+默认编译当前机器架构。可选 `ARCH=arm64`、`ARCH=x86_64` 或 `ARCH=universal ./build.sh`；universal 同时包含 Apple Silicon 与 Intel。构建会验证临时签名，成功后替换同名产物，不清空整个 `dist` 目录。应用图标在构建时由 `Resources/dsh-pet-icon.png` 生成 `AppIcon.icns`，不需要额外工具或手动导出。
 
 应用不显示 Dock 图标，菜单栏有 ¥ 图标。首次出现在主屏左下角，之后记住位置。旧版本的 `DSHBalancePet` 配置目录沿用，原有偏好无需迁移。
 
@@ -116,7 +116,7 @@ BIN='./dist/DSH大肥鱼桌宠.app/Contents/MacOS/DSHBalancePet'
 - `PetCharacter.swift`：四个内置角色的名称、图片、各自平板坐标与表情枚举。
 - `PetView.swift` / `PetAssets.swift` / `PetLayout.swift`：角色与表情切换绘制、按立绘比例缩放和透明区域交互。
 - `Diagnostics.swift` / `*SelfTests.swift`：离线回归与诊断。
-- `Resources/`：蓝色大肥鱼的三张 1024 × 1024 表情立绘、其余三张 1536 × 1024 角色 PNG、抱盆图，以及从 Windows 原版逐字节复制的 `hit.mp3`。
+- `Resources/`：蓝色大肥鱼的三张 1024 × 1024 表情立绘、其余三张 1536 × 1024 角色 PNG、抱盆图、应用图标源图 `dsh-pet-icon.png`，以及从 Windows 原版逐字节复制的 `hit.mp3`。
 - `artwork/left-completion-v1/`：补全图片、参考、提示词与原始素材检查记录。
 
 上游 Windows 原版的源码与素材不随本仓库分发，需要对照请查阅 [上游项目](https://github.com/VKmich16/V)，来源见 [素材说明](Resources/README.md)。旧音效生成脚本保留供参考，默认构建不再使用。

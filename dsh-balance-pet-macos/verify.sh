@@ -41,6 +41,16 @@ for resource in expression_happy.png expression_angry.png expression_nervous.png
   cmp "$ROOT/Resources/$resource" "$ROOT/dist/DSH大肥鱼桌宠.app/Contents/Resources/$resource"
 done
 
+# The bundle icon is generated at build time from Resources/dsh-pet-icon.png.
+ICON="$ROOT/dist/DSH大肥鱼桌宠.app/Contents/Resources/AppIcon.icns"
+[[ -f "$ICON" ]]
+[[ "$(file -b "$ICON")" == *"Mac OS X icon"* ]]
+[[ "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIconFile' \
+        "$ROOT/dist/DSH大肥鱼桌宠.app/Contents/Info.plist")" == AppIcon ]]
+iconutil -c iconset "$ICON" -o "$OUT/AppIcon.iconset"
+[[ "$(sips -g pixelWidth "$OUT/AppIcon.iconset/icon_512x512@2x.png" | awk '/pixelWidth/ {print $2}')" == 1024 ]]
+[[ "$(sips -g pixelWidth "$OUT/AppIcon.iconset/icon_16x16.png" | awk '/pixelWidth/ {print $2}')" == 16 ]]
+
 "$BIN" > "$TEST_PROFILE/app.log" 2>&1 &
 PET_PID=$!
 for attempt in {1..50}; do

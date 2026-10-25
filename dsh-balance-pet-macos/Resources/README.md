@@ -6,6 +6,8 @@
 
 1.3.0 新增三张同项目其他对话中已生成的角色图，均为 1536×1024 RGBA 原文件复制：GPT龙娘和大小姐Claude取自“创建并优化DSH大肥鱼桌宠”的第一组成品；北美猫娘Gemini取自“按人设修改大肥鱼图片”的 `character.png` 透明背景清理版。没有重新生成或改动图片内容。
 
+1.5.1 新增应用图标 `dsh-pet-icon.png`（用户提供的 833 × 807 RGBA 圆角图）。构建时用 `sips` 缩成 16–1024 的各档尺寸、由 `iconutil` 打包成 `AppIcon.icns` 放进应用包，源文件是唯一事实来源，仓库不保存 .icns。
+
 | 文件 | 用途 | SHA-256 |
 | --- | --- | --- |
 | `expression_happy.png` | 1024 × 1024 RGBA，平时表情（开心） | `53e3d2c41bca1ca87cf8d9ba345d13260724c3f54263f59bce850343ab7c2d37` |
@@ -17,6 +19,7 @@
 | `sprite-gemini.png` | 北美猫娘Gemini：蓝紫发、异色瞳、毛绒尾巴 | `ad5fbeb07c2212476d4670ec56b8e7202e21f05b42ab0461cf3150a43f91a2ef` |
 | `sprite-deepseek-offline.png` | 用户提供的 1536 × 1024 RGBA 抱盆图；仅用于蓝色大肥鱼未连接状态，原文件直接复制 | `fb4c5cb3001ca43d268d2e3bdf39b9d984e28d592e3b73e46e6fd44ccebb4555` |
 | `hit.mp3` | 原版扣费打击音效 | `43fa877b537d8cbfbd676d76109b9a960551bfeae06c62e2d1a7d64d3994cb29` |
+| `dsh-pet-icon.png` | 应用图标源图，833 × 807 RGBA | `4f59dab3d25bce949bb32b2aa77c3528a61ce01d48d5a6f1f952e368fdd52378` |
 
 补全图片来源、参考与提示词见 [`artwork/left-completion-v1`](../artwork/left-completion-v1/README.md)。Windows 原始 1024 × 1024 图片 SHA-256 为 `5bc1d8f1f347c430dd662ad8ff3da8d0dff3df9f290712efe36d004b7b103e69`。
 

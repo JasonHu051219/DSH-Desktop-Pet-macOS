@@ -48,6 +48,19 @@ done
 cp "$ROOT/Resources/hit.mp3" "$APP/Contents/Resources/hit.mp3"
 cp "$ROOT/Info.plist" "$APP/Contents/Info.plist"
 printf 'APPL????' > "$APP/Contents/PkgInfo"
+
+echo "==> building the app icon"
+ICONSET="$STAGING/AppIcon.iconset"
+mkdir -p "$ICONSET"
+for size in 16 32 128 256 512; do
+  sips -z "$size" "$size" "$ROOT/Resources/dsh-pet-icon.png" \
+       --out "$ICONSET/icon_${size}x${size}.png" >/dev/null
+  sips -z "$((size * 2))" "$((size * 2))" "$ROOT/Resources/dsh-pet-icon.png" \
+       --out "$ICONSET/icon_${size}x${size}@2x.png" >/dev/null
+done
+iconutil -c icns "$ICONSET" -o "$APP/Contents/Resources/AppIcon.icns"
+rm -rf "$ICONSET"
+
 xattr -cr "$APP"
 codesign --force --sign - "$APP"
 codesign --verify --strict "$APP"
