@@ -27,7 +27,7 @@
 
 蓝色大肥鱼在未配置 API Key / 账号凭证、连接中或连接失败时，改为显示抱盆图，不显示余额标题、金额、状态点或金额飘字；连接成功后自动恢复手持平板和余额显示。其他三个角色保持原有显示方式。
 
-[![大肥鱼未连接状态](dsh-balance-pet-macos/docs/previews/deepseek-offline.webp)](dsh-balance-pet-macos/docs/screenshots/deepseek-offline.png)
+![sprite-deepseek-offline](/Users/huqianxiang/DSH-Desktop-Pet-macOS/dsh-balance-pet-macos/Resources/sprite-deepseek-offline.png)
 
 ## 蓝色大肥鱼的三种表情
 
