@@ -8,8 +8,6 @@
 
 以下为应用实际渲染的四角色拼图，使用统一示例余额，不包含真实账号信息。
 
-[![四个角色使用预览](dsh-balance-pet-macos/docs/previews/four-characters-usage.webp)](dsh-balance-pet-macos/docs/screenshots/four-characters-usage.png)
-
 <table>
   <tr><th width="50%">蓝色大肥鱼</th><th width="50%">GPT龙娘</th></tr>
   <tr>
@@ -25,7 +23,7 @@
 
 原始透明 PNG 均包含在 [`Resources`](dsh-balance-pet-macos/Resources) 文件夹中；上表图片可点击查看原图。蓝色大肥鱼的旧版单张立绘 `sprite.png` 仍保留在 `Resources` 里，仅作历史素材，应用已改用表情立绘。
 
-**切换方法：** 右键桌宠，或点击菜单栏 **¥ → 切换角色**。选择立即生效，重启后自动恢复；切换保留余额、动画、窗口位置和尺寸。
+**切换方法：** 右键桌宠 → 切换角色。选择立即生效，重启后自动恢复；切换保留余额、动画、窗口位置和尺寸。
 
 蓝色大肥鱼在未配置 API Key / 账号凭证、连接中或连接失败时，改为显示抱盆图，不显示余额标题、金额、状态点或金额飘字；连接成功后自动恢复手持平板和余额显示。其他三个角色保持原有显示方式。
 
