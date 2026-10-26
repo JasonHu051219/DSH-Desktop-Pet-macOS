@@ -97,10 +97,10 @@
 
 ## 下载与运行
 
-前往 [最新 Release](https://github.com/Andromedahk/DSH-DaFeiYu-Desktop-Pet/releases/latest)，下载 `DSH-DaFeiYu-macOS.zip`，解压后将 **DSH大肥鱼桌宠.app** 放入“应用程序”并打开。
+前往 [最新 Release](https://github.com/Andromedahk/DSH-DaFeiYu-Desktop-Pet/releases/latest)，下载 `DSH-balance-pet-macOS-arm64.zip`，解压后将 **DSH大肥鱼桌宠.app** 放入“应用程序”并打开。
 
-- 支持 **macOS 13 及以上**；发布包同时包含 Apple Silicon 与 Intel 架构。
-- 应用可读取本机 DeepSeek Harness 凭证，独立运行；默认跟随 DSH 窗口显示，可在菜单里关闭该联动后单独使用。具体配置见 [macOS 使用说明](dsh-balance-pet-macos/README.md#凭证与余额)。
+- 支持 **macOS 13 及以上**；发布版本仅包含 Apple Silicon架构。
+- 应用可读取本机 DeepSeek Harness 凭证，独立运行；默认跟随 DSH 窗口显示，可在菜单里关闭该联动后单独使用。
 - 应用使用本地临时签名，尚未经过 Apple 开发者签名和公证。首次打开可能被系统拦截；确认下载来源后，可在“系统设置 → 隐私与安全性”中允许打开。
 
 ## 日常操作
