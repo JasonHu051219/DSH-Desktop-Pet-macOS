@@ -26,8 +26,7 @@
 **切换方法：** 右键桌宠 → 切换角色。选择立即生效，重启后自动恢复；切换保留余额、动画、窗口位置和尺寸。
 
 蓝色大肥鱼在未配置 API Key / 账号凭证、连接中或连接失败时，改为显示抱盆图，不显示余额标题、金额、状态点或金额飘字；连接成功后自动恢复手持平板和余额显示。其他三个角色保持原有显示方式。
-
-![sprite-deepseek-offline](/Users/huqianxiang/DSH-Desktop-Pet-macOS/dsh-balance-pet-macos/Resources/sprite-deepseek-offline.png)
+![离线状态](dsh-balance-pet-macos/Resources/sprite-deepseek-offline.png)
 
 ## 蓝色大肥鱼的三种表情
 
