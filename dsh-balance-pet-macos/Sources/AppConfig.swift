@@ -81,6 +81,16 @@ enum PetPaths {
         return candidates.compactMap { $0 }.first { FileManager.default.fileExists(atPath: $0.path) }
     }
 
+    /// Bundled UI sounds such as `pet_start` / `pet_end`, which only ship as mp3.
+    static func audioURL(named name: String) -> URL? {
+        let candidates: [URL?] = [
+            Bundle.main.url(forResource: name, withExtension: "mp3"),
+            support.appendingPathComponent("\(name).mp3"),
+            executableDir.appendingPathComponent("\(name).mp3"),
+        ]
+        return candidates.compactMap { $0 }.first { FileManager.default.fileExists(atPath: $0.path) }
+    }
+
     static let dshCredentials = URL(fileURLWithPath: NSHomeDirectory() + "/.dsh/.credentials.yaml")
 }
 

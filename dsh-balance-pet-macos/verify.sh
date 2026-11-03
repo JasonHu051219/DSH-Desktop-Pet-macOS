@@ -37,7 +37,8 @@ codesign --verify --strict "$ROOT/dist/DSH大肥鱼桌宠.app"
 # no longer vendored, so this pins the bytes instead of comparing against it.
 [[ "$(shasum -a 256 "$ROOT/Resources/hit.mp3" | cut -d ' ' -f 1)" == 43fa877b537d8cbfbd676d76109b9a960551bfeae06c62e2d1a7d64d3994cb29 ]]
 for resource in expression_happy.png expression_angry.png expression_nervous.png \
-                sprite-gpt.png sprite-claude.png sprite-gemini.png sprite-deepseek-offline.png hit.mp3; do
+                sprite-gpt.png sprite-claude.png sprite-gemini.png sprite-deepseek-offline.png \
+                hit.mp3 pet_start.mp3 pet_end.mp3; do
   cmp "$ROOT/Resources/$resource" "$ROOT/dist/DSH大肥鱼桌宠.app/Contents/Resources/$resource"
 done
 

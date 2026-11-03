@@ -6,30 +6,38 @@ enum PetSide {
     case left, right
 }
 
-/// Pressing the pet ducks its head: the artwork briefly loses a tenth of its
-/// height, anchored on its feet, then springs back. Kept as pure timing so the
-/// shape of the motion can be checked without a window server.
+/// Petting the pet ducks its head: the artwork loses a tenth of its height
+/// while the mouse is held down, anchored on its feet, and springs back when it
+/// is released. Kept as pure timing so the motion can be checked without a
+/// window server.
 enum PetDuck {
-    /// Total length of the squash and its recovery.
-    static let duration: CFTimeInterval = 0.24
-    /// Height lost at the deepest point, as a fraction of the artwork height.
+    /// Time to reach the deepest squash after the press.
+    static let pressDuration: CFTimeInterval = 0.08
+    /// Time to rise back once the press ends.
+    static let releaseDuration: CFTimeInterval = 0.16
+    /// Height lost while the head is held down.
     static let squash: CGFloat = 0.10
-    /// When the squash bottoms out, as a fraction of `duration`. The head drops
-    /// faster than it comes back up.
-    static let bottom: Double = 0.32
 
-    /// Vertical scale at `elapsed` seconds after the press.
-    static func scale(after elapsed: CFTimeInterval) -> CGFloat {
-        guard elapsed > 0, elapsed < duration else { return 1 }
-        let progress = elapsed / duration
-        let depth = progress < bottom ? progress / bottom
-                                      : 1 - (progress - bottom) / (1 - bottom)
-        return 1 - squash * CGFloat(max(0, min(1, depth)))
+    /// Scale at the deepest point of the squash.
+    static var deepest: CGFloat { 1 - squash }
+
+    /// Scale while the pet is held: eases down, then stays there until release.
+    static func heldScale(after elapsed: CFTimeInterval) -> CGFloat {
+        guard elapsed > 0 else { return 1 }
+        let progress = CGFloat(min(1, elapsed / pressDuration))
+        return 1 - squash * progress
+    }
+
+    /// Scale while the pet springs back from `scale` after the release.
+    static func releasedScale(from scale: CGFloat, after elapsed: CFTimeInterval) -> CGFloat {
+        guard elapsed > 0 else { return scale }
+        guard elapsed < releaseDuration else { return 1 }
+        let progress = CGFloat(elapsed / releaseDuration)
+        return scale + (1 - scale) * progress
     }
 
     /// The artwork rect shortened about its bottom edge, so the feet stay put.
-    static func rect(_ rect: CGRect, after elapsed: CFTimeInterval) -> CGRect {
-        let scale = scale(after: elapsed)
+    static func rect(_ rect: CGRect, scale: CGFloat) -> CGRect {
         guard scale < 1 else { return rect }
         return CGRect(x: rect.minX, y: rect.minY, width: rect.width, height: rect.height * scale)
     }

@@ -23,6 +23,9 @@ final class PetController: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var petHidden = false
     private var hostVisible = true
     private var nervousUntil: CFTimeInterval = 0
+    /// True between mouse-down and mouse-up on the pet: the face is nervous and
+    /// the head stays down for as long as the pet is being petted.
+    private var isPetting = false
     private var wakeObserver: NSObjectProtocol?
     private var screenObserver: NSObjectProtocol?
     private var activationObserver: NSObjectProtocol?
@@ -33,6 +36,8 @@ final class PetController: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     private var soundPlayers: [NSSound] = []
     private var soundIndex = 0
+    private lazy var petStartSound: NSSound? = makePetSound("pet_start")
+    private lazy var petEndSound: NSSound? = makePetSound("pet_end")
 
     static let sizePresets: [(title: String, side: CGFloat)] = [
         ("小", 110), ("中", 150), ("大", 210), ("特大", 280),
@@ -227,14 +232,42 @@ final class PetController: NSObject, NSApplicationDelegate, NSMenuDelegate {
         state.save()
     }
 
-    /// A press makes the pet duck: nervous face plus a quick vertical squash.
-    /// Both start immediately, so a click reads as a reflex rather than a wait.
-    func petWasClicked() {
-        guard !petHidden else { return }
-        nervousUntil = max(nervousUntil, CACurrentMediaTime() + PetDuck.duration)
+    /// Petting starts on mouse-down: nervous face, the head drops, and the
+    /// `pet_start` sound plays. Everything reacts immediately.
+    func petWasPressed() {
+        guard !petHidden, !isPetting else { return }
+        isPetting = true
         view.expression = .nervous
         view.beginDuck()
+        playPetSound(petStartSound, restarting: true)
         writeStatus()
+    }
+
+    /// Petting ends on mouse-up: the face returns to whatever it should be and
+    /// `pet_end` plays. A press that never reports its release is cleared by the
+    /// mouse-button check in the tick.
+    func petWasReleased() {
+        guard isPetting else { return }
+        isPetting = false
+        view.endDuck()
+        petStartSound?.stop()
+        playPetSound(petEndSound, restarting: true)
+        refreshExpression()
+        writeStatus()
+    }
+
+    /// Lazy one-shot players for the two petting sounds.
+    private func makePetSound(_ name: String) -> NSSound? {
+        guard let url = PetPaths.audioURL(named: name),
+              let sound = NSSound(contentsOf: url, byReference: true) else { return nil }
+        sound.volume = 0.7
+        return sound
+    }
+
+    private func playPetSound(_ sound: NSSound?, restarting: Bool) {
+        guard state.soundOn, !petHidden, let sound = sound else { return }
+        if restarting { sound.stop() }
+        sound.play()
     }
 
     // MARK: - dsh-desktop window binding
@@ -253,8 +286,13 @@ final class PetController: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     /// Happy normally, angry while the host window is visible but not focused,
-    /// nervous for the deduction animation plus one second.
+    /// nervous while the pet is being petted or during a deduction.
     private func refreshExpression() {
+        // Petting wins until the button is released, then the normal rules apply.
+        guard !isPetting else {
+            view.expression = .nervous
+            return
+        }
         view.expression = PetExpressionPolicy.expression(
             now: CACurrentMediaTime(),
             nervousUntil: nervousUntil,
@@ -265,6 +303,13 @@ final class PetController: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     private func setPetHidden(_ hidden: Bool) {
         guard hidden != petHidden else { return }
+        // Hiding mid-pet ends the petting quietly: the release sound belongs to
+        // a pet the user is still looking at.
+        if hidden, isPetting {
+            isPetting = false
+            view.endDuck()
+            petStartSound?.stop()
+        }
         petHidden = hidden
         if hidden {
             window.orderOut(nil)
@@ -317,6 +362,9 @@ final class PetController: NSObject, NSApplicationDelegate, NSMenuDelegate {
             bindingAccum = 0
             refreshWindowBinding()
         }
+        // A release can be missed when the window is hidden or the button goes up
+        // outside the pet; the physical button state is the source of truth.
+        if isPetting, NSEvent.pressedMouseButtons & 1 == 0 { petWasReleased() }
         refreshExpression()
         updateMirrored()
     }

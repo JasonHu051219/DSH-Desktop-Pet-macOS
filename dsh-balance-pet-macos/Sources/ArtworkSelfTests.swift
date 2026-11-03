@@ -258,6 +258,14 @@ enum ArtworkSelfTests {
         if let url = PetPaths.soundURL, let sound = NSSound(contentsOf: url, byReference: false) {
             expect(url.lastPathComponent == "hit.mp3" && sound.duration > 0, "original MP3 loads and decodes")
         } else { expect(false, "original MP3 loads and decodes") }
+        for name in ["pet_start", "pet_end"] {
+            if let url = PetPaths.audioURL(named: name), let sound = NSSound(contentsOf: url, byReference: false) {
+                expect(url.lastPathComponent == "\(name).mp3" && sound.duration > 0,
+                       "\(name).mp3 loads and decodes")
+            } else {
+                expect(false, "\(name).mp3 loads and decodes")
+            }
+        }
     }
 
     /// Either bottom corner must touch both screen edges, and a pet parked on
@@ -327,41 +335,48 @@ enum ArtworkSelfTests {
     /// Pressing the pet ducks it: a tenth of the height, anchored on the feet,
     /// back to normal within a quarter of a second.
     private static func duckTests(_ expect: (Bool, String) -> Void) {
-        expect(PetDuck.scale(after: 0) == 1, "duck: the pet is at rest before the press")
-        expect(PetDuck.scale(after: PetDuck.duration) == 1
-               && PetDuck.scale(after: PetDuck.duration * 5) == 1,
-               "duck: back to full height once it ends")
-        expect(abs(PetDuck.squash - 0.10) < 0.0001 && PetDuck.duration <= 0.3,
-               "duck: a 10% squeeze inside a quarter of a second")
+        expect(abs(PetDuck.squash - 0.10) < 0.0001 && PetDuck.pressDuration <= 0.3,
+               "duck: a 10% squeeze that starts quickly")
+        expect(PetDuck.heldScale(after: 0) == 1, "duck: pressing starts from full height")
+        expect(abs(PetDuck.heldScale(after: PetDuck.pressDuration) - PetDuck.deepest) < 0.0001,
+               "duck: the head is fully down after the press duration")
+        expect(abs(PetDuck.heldScale(after: 10) - PetDuck.deepest) < 0.0001,
+               "duck: the head stays down for as long as the pet is held")
+        expect(PetDuck.releasedScale(from: PetDuck.deepest, after: 0) == PetDuck.deepest,
+               "duck: releasing starts from wherever the press stopped")
+        expect(PetDuck.releasedScale(from: PetDuck.deepest, after: PetDuck.releaseDuration) == 1,
+               "duck: the head is back up when the release finishes")
 
-        let bottom = PetDuck.duration * PetDuck.bottom
-        expect(abs(PetDuck.scale(after: bottom) - (1 - PetDuck.squash)) < 0.0001,
-               "duck: bottoms out exactly at the configured squash")
-
-        var scales: [CGFloat] = []
-        for step in 0...40 {
-            scales.append(PetDuck.scale(after: PetDuck.duration * Double(step) / 40))
+        var previousDown = CGFloat(1)
+        var falls = true
+        for step in 0...20 {
+            let scale = PetDuck.heldScale(after: PetDuck.pressDuration * Double(step) / 20)
+            if scale > previousDown + 0.0001 { falls = false }
+            previousDown = scale
         }
-        let lowestIndex = scales.indices.min { scales[$0] < scales[$1] } ?? 0
-        let lowestAt = PetDuck.duration * Double(lowestIndex) / 40
-        let dips = lowestIndex == 0
-            || (1...lowestIndex).allSatisfy { scales[$0] <= scales[$0 - 1] + 0.0001 }
-        let rises = lowestIndex + 1 >= scales.count
-            || ((lowestIndex + 1)..<scales.count).allSatisfy { scales[$0] >= scales[$0 - 1] - 0.0001 }
-        expect(dips && rises, "duck: dips once, then springs straight back")
-        expect(abs(lowestAt - bottom) < 0.02, "duck: the deepest point lands where the timing says")
+        expect(falls, "duck: pressing only ever lowers the head")
+
+        var previousUp = PetDuck.deepest
+        var rises = true
+        for step in 0...20 {
+            let scale = PetDuck.releasedScale(from: PetDuck.deepest,
+                                              after: PetDuck.releaseDuration * Double(step) / 20)
+            if scale < previousUp - 0.0001 { rises = false }
+            previousUp = scale
+        }
+        expect(rises, "duck: releasing only ever raises the head")
 
         let artwork = CGRect(x: 12, y: 30, width: 120, height: 140)
-        let squashed = PetDuck.rect(artwork, after: bottom)
+        let squashed = PetDuck.rect(artwork, scale: PetDuck.deepest)
         expect(abs(squashed.minY - artwork.minY) < 0.0001
                && abs(squashed.height - artwork.height * 0.9) < 0.0001
                && squashed.width == artwork.width,
                "duck: the artwork shrinks from its feet instead of its middle")
-        expect(PetDuck.rect(artwork, after: PetDuck.duration) == artwork,
-               "duck: the artwork is untouched outside the press")
+        expect(PetDuck.rect(artwork, scale: 1) == artwork,
+               "duck: the artwork is untouched when the pet stands up")
 
-        // The drawing really compresses: render a mid-press frame and compare
-        // its opaque box with the resting pet.
+        // The drawing really compresses while held: render a pressed frame and
+        // compare its opaque box with the resting pet.
         let frame = CGRect(origin: .zero, size: PetLayout.windowSize(side: 150, character: .deepseek))
         let model = PetModel()
         model.apply(reading: BalanceReading(normalCny: 38.61, bonusCny: 0, spentCny: nil, raw: ""), snap: true)
@@ -373,16 +388,19 @@ enum ArtworkSelfTests {
         }
         let normal = renderedBox(PetView(model: model, character: .deepseek))
         let ducking = PetView(model: model, character: .deepseek)
-        ducking.beginDuck(elapsed: PetDuck.duration * PetDuck.bottom)
+        ducking.beginDuck(elapsed: PetDuck.pressDuration)
         let pressed = renderedBox(ducking)
         if let normal = normal, let pressed = pressed {
             expect(abs(pressed.width - normal.width) <= 2, "duck: the artwork keeps its width")
             expect(abs(pressed.maxY - normal.maxY) <= 2, "duck: the feet stay planted on the ground")
             expect(abs(CGFloat(pressed.height) - CGFloat(normal.height) * 0.9) <= 3,
-                   "duck: the rendered pet really is 10% shorter")
+                   "duck: the rendered pet really is 10% shorter while held")
         } else {
             expect(false, "duck: the pressed frame renders for comparison")
         }
+        expect(ducking.isDucking, "duck: the pet counts as petted while the button is held")
+        ducking.endDuck()
+        expect(ducking.isDucking, "duck: the release keeps the spring-back running")
     }
 
     /// Each face must draw a different picture, and each keeps the text on the

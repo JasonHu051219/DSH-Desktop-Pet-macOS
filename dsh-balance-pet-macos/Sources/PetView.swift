@@ -85,39 +85,80 @@ final class PetView: NSView {
                        y: cos(elapsed * 19) * amplitude * 0.875 * decay)
     }
 
-    // MARK: - Ducking on click
+    // MARK: - Petting
 
-    private var duckStartedAt: CFTimeInterval?
+    /// The pet is pressed (petted) from mouse-down until mouse-up. The squash
+    /// holds at its deepest while the button stays down.
+    private enum DuckPhase {
+        case idle
+        case held(since: CFTimeInterval)
+        case released(since: CFTimeInterval, from: CGFloat)
+    }
+
+    private var duck: DuckPhase = .idle
     private var duckTimer: Timer?
 
     /// Vertical squeeze of the artwork right now; 1 when the pet is at rest.
     private var duckScale: CGFloat {
-        guard let start = duckStartedAt else { return 1 }
-        return PetDuck.scale(after: CACurrentMediaTime() - start)
+        switch duck {
+        case .idle:
+            return 1
+        case .held(let since):
+            return PetDuck.heldScale(after: CACurrentMediaTime() - since)
+        case .released(let since, let from):
+            return PetDuck.releasedScale(from: from, after: CACurrentMediaTime() - since)
+        }
     }
 
-    var isDucking: Bool { duckStartedAt != nil }
+    var isDucking: Bool {
+        if case .idle = duck { return false }
+        return true
+    }
 
-    /// Squash the pet and spring back. Called on mouse-down so the reaction is
-    /// immediate; a short timer drives the redraws at 60 Hz while it lasts.
-    /// `elapsed` lets a test render a frame from the middle of the press.
+    /// Press: start the head drop, which stays down until `endDuck()`. `elapsed`
+    /// lets a test render a frame from the middle of the squash.
     func beginDuck(elapsed: CFTimeInterval = 0) {
-        duckStartedAt = CACurrentMediaTime() - elapsed
+        duck = .held(since: CACurrentMediaTime() - elapsed)
         needsDisplay = true
+        startDuckTimer()
+    }
+
+    /// Release: spring back from wherever the press got to.
+    func endDuck() {
+        let from = duckScale
+        duck = .released(since: CACurrentMediaTime(), from: from)
+        needsDisplay = true
+        startDuckTimer()
+    }
+
+    /// 60 Hz redraws while the squash settles. Once the press bottoms out, or
+    /// the release finishes, the timer stops so an idle press costs nothing.
+    private func startDuckTimer() {
         guard duckTimer == nil else { return }
         let timer = Timer(timeInterval: 1.0 / 60.0, repeats: true) { [weak self] _ in
             guard let self = self else { return }
             self.needsDisplay = true
-            guard let start = self.duckStartedAt,
-                  CACurrentMediaTime() - start >= PetDuck.duration else { return }
-            self.duckStartedAt = nil
-            self.duckTimer?.invalidate()
-            self.duckTimer = nil
-            self.needsDisplay = true
+            switch self.duck {
+            case .idle:
+                self.stopDuckTimer()
+            case .held(let since):
+                if CACurrentMediaTime() - since >= PetDuck.pressDuration { self.stopDuckTimer() }
+            case .released(let since, _):
+                if CACurrentMediaTime() - since >= PetDuck.releaseDuration {
+                    self.duck = .idle
+                    self.stopDuckTimer()
+                    self.needsDisplay = true
+                }
+            }
         }
         timer.tolerance = 1.0 / 240.0
         RunLoop.main.add(timer, forMode: .common)
         duckTimer = timer
+    }
+
+    private func stopDuckTimer() {
+        duckTimer?.invalidate()
+        duckTimer = nil
     }
 
     /// Used by both AppKit hit testing and the controller's window-level
@@ -153,9 +194,9 @@ final class PetView: NSView {
             controller?.showContextMenu(with: event)
             return
         }
-        // React on the press itself: no click-vs-drag wait, so the duck starts
-        // immediately even if the press turns into a drag.
-        controller?.petWasClicked()
+        // Petting starts on the press itself: the face and the sound react
+        // immediately, without waiting to see whether this turns into a drag.
+        controller?.petWasPressed()
         isDragging = true
         didDrag = false
         dragStartMouse = NSEvent.mouseLocation
@@ -173,6 +214,8 @@ final class PetView: NSView {
     }
 
     override func mouseUp(with event: NSEvent) {
+        // The pet stops being petted on any mouse-up, dragged or not.
+        controller?.petWasReleased()
         guard isDragging else { return }
         isDragging = false
         // A simple click should not unexpectedly move a manually placed pet.
