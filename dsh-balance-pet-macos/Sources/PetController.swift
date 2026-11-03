@@ -265,7 +265,7 @@ final class PetController: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     private func playPetSound(_ sound: NSSound?, restarting: Bool) {
-        guard state.soundOn, !petHidden, let sound = sound else { return }
+        guard state.petSoundOn, !petHidden, let sound = sound else { return }
         if restarting { sound.stop() }
         sound.play()
     }
@@ -458,7 +458,7 @@ final class PetController: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private func playHit() {
         // A hidden pet must stay silent; the balance change is replayed when the
         // next poll snaps the readout anyway.
-        guard state.soundOn, !petHidden, let url = PetPaths.soundURL else { return }
+        guard state.hitSoundOn, !petHidden, let url = PetPaths.soundURL else { return }
         // All players and indexes are owned by the main thread.
         if soundPlayers.isEmpty {
             for _ in 0..<4 {
@@ -577,12 +577,29 @@ final class PetController: NSObject, NSApplicationDelegate, NSMenuDelegate {
             self.state.save()
             self.refreshWindowBinding()
         })
-        menu.addItem(item(state.soundOn ? "✓ 音效" : "　音效") { [weak self] in
+        // Sounds are switched independently: petting uses pet_start/pet_end,
+        // deductions use the original hit sound.
+        let soundMenu = NSMenu(title: "音效")
+        soundMenu.autoenablesItems = false
+        soundMenu.delegate = self
+        soundMenu.addItem(item(state.petSoundOn ? "✓ 摸头音效" : "　摸头音效") { [weak self] in
             guard let self = self else { return }
-            self.state.soundOn.toggle()
-            if !self.state.soundOn { self.soundPlayers.forEach { $0.stop() } }
+            self.state.petSoundOn.toggle()
+            if !self.state.petSoundOn {
+                self.petStartSound?.stop()
+                self.petEndSound?.stop()
+            }
             self.state.save()
         })
+        soundMenu.addItem(item(state.hitSoundOn ? "✓ 扣费音效" : "　扣费音效") { [weak self] in
+            guard let self = self else { return }
+            self.state.hitSoundOn.toggle()
+            if !self.state.hitSoundOn { self.soundPlayers.forEach { $0.stop() } }
+            self.state.save()
+        })
+        let soundItem = NSMenuItem(title: soundMenu.title, action: nil, keyEquivalent: "")
+        menu.addItem(soundItem)
+        menu.setSubmenu(soundMenu, for: soundItem)
 
         let intervalMenu = NSMenu(title: "刷新间隔")
         intervalMenu.autoenablesItems = false

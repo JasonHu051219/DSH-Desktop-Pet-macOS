@@ -339,7 +339,9 @@ struct PetState {
     var sizeIndex: Int = 1          // index into PetController.sizePresets
     var snapOnRelease: Bool = true
     var followDSHWindow: Bool = true
-    var soundOn: Bool = true
+    /// Two independent switches: the original hit sound and the petting sounds.
+    var hitSoundOn: Bool = true
+    var petSoundOn: Bool = true
     var pollSeconds: Double = 30
     var windowOrigin: CGPoint?
 
@@ -353,7 +355,11 @@ struct PetState {
         if let v = obj["sizeIndex"] as? Int, (0...3).contains(v) { s.sizeIndex = v }
         if let v = obj["snapOnRelease"] as? Bool { s.snapOnRelease = v }
         if let v = obj["followDSHWindow"] as? Bool { s.followDSHWindow = v }
-        if let v = obj["soundOn"] as? Bool { s.soundOn = v }
+        // 1.6.1 split the single sound switch in two; an older `soundOn: false`
+        // still silences both.
+        let legacySound = obj["soundOn"] as? Bool
+        if let v = obj["hitSoundOn"] as? Bool { s.hitSoundOn = v } else if let v = legacySound { s.hitSoundOn = v }
+        if let v = obj["petSoundOn"] as? Bool { s.petSoundOn = v } else if let v = legacySound { s.petSoundOn = v }
         if let v = obj["pollSeconds"] as? Double, v.isFinite { s.pollSeconds = min(300, max(10, v)) }
         if let x = obj["originX"] as? Double, let y = obj["originY"] as? Double, x.isFinite, y.isFinite {
             s.windowOrigin = CGPoint(x: x, y: y)
@@ -367,7 +373,8 @@ struct PetState {
             "sizeIndex": min(3, max(0, sizeIndex)),
             "snapOnRelease": snapOnRelease,
             "followDSHWindow": followDSHWindow,
-            "soundOn": soundOn,
+            "hitSoundOn": hitSoundOn,
+            "petSoundOn": petSoundOn,
             "pollSeconds": pollSeconds.isFinite ? min(300, max(10, pollSeconds)) : 30,
         ]
         if let o = windowOrigin, o.x.isFinite, o.y.isFinite {

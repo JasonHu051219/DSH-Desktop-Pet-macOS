@@ -519,12 +519,25 @@ enum ArtworkSelfTests {
             var state = PetState()
             state.character = character
             state.sizeIndex = 2
-            state.soundOn = false
+            state.petSoundOn = false
             state.save(to: url)
             let restored = PetState.load(from: url)
-            expect(restored.character == character && restored.sizeIndex == 2 && !restored.soundOn,
+            expect(restored.character == character && restored.sizeIndex == 2
+                   && !restored.petSoundOn && restored.hitSoundOn,
                    "\(character.displayName): selection survives saving and loading settings")
         }
+        // 1.6.1 replaced the single switch with two; an old "soundOn: false"
+        // must keep both sounds off.
+        do {
+            try Data("{\"soundOn\":false}".utf8).write(to: url)
+            let restored = PetState.load(from: url)
+            expect(!restored.hitSoundOn && !restored.petSoundOn,
+                   "legacy single sound switch silences both new switches")
+            try Data("{\"soundOn\":false,\"petSoundOn\":true}".utf8).write(to: url)
+            let split = PetState.load(from: url)
+            expect(!split.hitSoundOn && split.petSoundOn,
+                   "an explicit new switch wins over the legacy one")
+        } catch { expect(false, "sound settings fixture can be written") }
         for json in ["{\"sizeIndex\":2}", "{\"sizeIndex\":2,\"character\":\"unknown-future-character\"}"] {
             do {
                 try Data(json.utf8).write(to: url)
